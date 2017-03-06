@@ -11,17 +11,23 @@ import scala.io.Source
 
 /**
   * Created by chenxiaolei on 17/1/18.
+  * 基于模型的 图书推荐
+  *
+  * （基于用户的 基于内容的 基于模型的）
   */
 object BookALS {
   def main(args: Array[String]): Unit = {
+
     Logger.getLogger("org.apache.spark").setLevel(Level.ERROR)
     Logger.getLogger("org.apache.eclipse.jetty.server").setLevel(Level.OFF)
 
-    //设置运行环境
+    //设置运行环境 spark 内存计算框架 内存计算快 没有io 没有网络操作 计算 100倍以上
     val conf = new SparkConf().setAppName("book_als").setMaster("local[2]")
+    //建立入口
     val sc = new SparkContext(conf)
-    //装载用户评分
+    //装载用户评分 需要做推荐的用户list
     val myRatings = loadRatings("/Users/chenxiaolei/ltt_book/personalRatings.txt")
+
     val myRatingsRDD = sc.parallelize(myRatings, 1)
 
     //样本数据目录
@@ -68,6 +74,7 @@ object BookALS {
 
     for (rank <- ranks; lambda <- lambdas; numIter <- numIters) {
       val model = ALS.train(training, rank, numIter, lambda)
+      //计算rmse
       val validationRmse = computeRmse(model, validation, numValidation)
       println("RMSE(validation) = " + validationRmse + " 模型的 trained and rank = "
         + rank + ",lambda = " + lambda + ",and numIter = " + numIter + ".")
@@ -80,6 +87,7 @@ object BookALS {
         bestNumIter = numIter
       }
     }
+
     //用最佳模型预测测试集的评分，并计算和实际评分之间的均方根误差（RMSE）
     val testRmse = computeRmse(bestModel.get, test, numTest)
     println("最佳训练 rank = " + bestRank + " and lambda = " + bestLambda
